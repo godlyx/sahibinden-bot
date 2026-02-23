@@ -2,12 +2,12 @@ name: Itopya Fiyat Avcisi Botu
 
 on:
   schedule:
-    - cron: '0 * * * *' # Her saat başı çalışır
-  workflow_dispatch: # Manuel tetikleme butonu
+    - cron: '0 * * * *' 
+  workflow_dispatch: 
 
 jobs:
   scrape-and-notify:
-    runs-on: windows-latest # İŞTE SİHİRLİ DOKUNUŞ BURASI! Ubuntu yerine Windows sunucusu kiralıyoruz.
+    runs-on: windows-latest 
 
     steps:
       - name: Depoyu Kopyala
@@ -24,4 +24,6 @@ jobs:
           pip install undetected-chromedriver selenium requests
 
       - name: Botu Çalıştır
+        env:
+          PYTHONIOENCODING: "utf-8"
         run: python scraper.py
