@@ -8,7 +8,6 @@ from database import veritabani_kur, urun_isle_ve_kiyasla
 # --- AYARLAR ---
 TOKEN = "8023968347:AAHdnOPqsgLmVePRfeA1X48iB7KDyU7KpRI"
 CHAT_ID = "-5204115535"
-# Not: BEKLEME_SURESI_DAKIKA silindi çünkü zamanlamayı artık GitHub Actions (cron) yapacak.
 
 def telegrama_gonder(mesaj):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
@@ -20,14 +19,15 @@ def telegrama_gonder(mesaj):
 
 def fiyat_temizle(fiyat_metni):
     try:
+        # Vatan'daki "15.999,00 TL" gibi formatları temizler
         temiz = re.sub(r'[^\d,]', '', fiyat_metni)
         temiz = temiz.replace(',', '.')
         return float(temiz)
     except:
         return 0.0
 
-def itopya_fiyat_avcisi():
-    print(f"\n[{time.strftime('%H:%M:%S')}] Fiyat Avcısı taramaya başlıyor...")
+def vatan_fiyat_avcisi():
+    print(f"\n[{time.strftime('%H:%M:%S')}] Vatan Bilgisayar taramaya başlıyor...")
     options = uc.ChromeOptions()
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
@@ -36,47 +36,50 @@ def itopya_fiyat_avcisi():
     options.add_argument("--lang=tr-TR") 
     
     driver = uc.Chrome(options=options, version_main=144)
+
     try:
-        # İtopya Laptop Kategorisi
-        driver.get("https://www.itopya.com/notebook_k14")
-        time.sleep(15) 
+        # Vatan Bilgisayar Notebook Kategorisi
+        driver.get("https://www.vatanbilgisayar.com/notebook/")
+        time.sleep(10) # Sayfanın yüklenmesi için kısa bir bekleme
         
-        # --- TEŞHİS İÇİN EKLENEN KISIM ---
         print("Gidilen URL:", driver.current_url)
         print("Sayfa Başlığı:", driver.title)
-        print("Sayfa Kaynağı Uzunluğu:", len(driver.page_source))
-        # ---------------------------------
 
-        basliklar = driver.find_elements(By.CSS_SELECTOR, "a.title")
-        fiyatlar = driver.find_elements(By.CSS_SELECTOR, "span.old-price")
-
+        # Vatan Bilgisayar'ın ürün kartı CSS yapıları
+        urun_kartlari = driver.find_elements(By.CSS_SELECTOR, ".product-list__content")
+        
         islem_goren_sayisi = 0
         bildirim_giden_sayisi = 0
 
-        for i in range(len(basliklar)):
-            baslik = basliklar[i].text.strip()
-            if not baslik or "notebook" not in baslik.lower() and "laptop" not in baslik.lower(): 
-                continue 
-            
-            link = basliklar[i].get_attribute("href")
-            if not link.startswith("http"): link = "https://www.itopya.com" + link
-            
-            if i < len(fiyatlar):
-                fiyat_metni = fiyatlar[i].text.strip().replace("\n", " ")
+        for kart in urun_kartlari:
+            try:
+                baslik_elementi = kart.find_element(By.CSS_SELECTOR, ".product-list__product-name")
+                fiyat_elementi = kart.find_element(By.CSS_SELECTOR, ".product-list__price")
+                
+                baslik = baslik_elementi.text.strip()
+                fiyat_metni = fiyat_elementi.text.strip()
+                
+                # Kartın sarmalayıcı linkini alıyoruz
+                link_elementi = kart.find_element(By.XPATH, "..")
+                link = link_elementi.get_attribute("href")
+                
+                if not link.startswith("http"): 
+                    link = "https://www.vatanbilgisayar.com" + link
+
                 sayisal_fiyat = fiyat_temizle(fiyat_metni)
-            else:
-                continue # Fiyatı okunamayanları pas geç
 
-            # Veritabanına sor: Fiyat düştü mü?
-            kiyas_mesaji = urun_isle_ve_kiyasla(ilan_id=link, baslik=baslik, link=link, guncel_fiyat=sayisal_fiyat)
-            islem_goren_sayisi += 1
+                if sayisal_fiyat > 0:
+                    kiyas_mesaji = urun_isle_ve_kiyasla(ilan_id=link, baslik=baslik, link=link, guncel_fiyat=sayisal_fiyat)
+                    islem_goren_sayisi += 1
 
-            # SADECE İNDİRİM VARSA VEYA YENİ ÜRÜNSE TELEGRAMA AT
-            if "İNDİRİM YAKALANDI" in kiyas_mesaji or "YENİ İLAN" in kiyas_mesaji:
-                mesaj = f"💻 <b>İTOPYA STOK/FİYAT BİLDİRİMİ!</b>\n\n📌 <b>Model:</b> {baslik}\n{kiyas_mesaji}\n\n🔗 <a href='{link}'>Ürüne Git</a>"
-                telegrama_gonder(mesaj)
-                bildirim_giden_sayisi += 1
-                time.sleep(1)
+                    if "İNDİRİM YAKALANDI" in kiyas_mesaji or "YENİ İLAN" in kiyas_mesaji:
+                        mesaj = f"💻 <b>VATAN BİLGİSAYAR FIRSATI!</b>\n\n📌 <b>Model:</b> {baslik}\n{kiyas_mesaji}\n\n🔗 <a href='{link}'>Ürüne Git</a>"
+                        telegrama_gonder(mesaj)
+                        bildirim_giden_sayisi += 1
+                        time.sleep(1) # Telegram'dan spam yememek için
+            except Exception as e:
+                # Reklam veya hatalı kartları pas geç
+                continue
 
         print(f"Tarama bitti: {islem_goren_sayisi} ürün kontrol edildi, {bildirim_giden_sayisi} fırsat Telegrama iletildi.")
 
@@ -88,8 +91,5 @@ def itopya_fiyat_avcisi():
 if __name__ == "__main__":
     veritabani_kur()
     print("🚀 GITHUB ACTIONS TARAFINDAN TETİKLENDİ: Otomasyon başlatılıyor...")
-    
-    # Döngü olmadan sadece bir kez çalıştır
-    itopya_fiyat_avcisi()
-    
+    vatan_fiyat_avcisi()
     print("✅ İşlem başarıyla tamamlandı. Bulut makinesi kapatılıyor...")
