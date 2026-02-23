@@ -32,7 +32,7 @@ def itopya_fiyat_avcisi():
     options.add_argument("--headless") # Pencereyi gizler (Bulut için zorunlu)
     options.add_argument("--no-sandbox") # Sunucu ortamında güvenli çalışma sağlar
     options.add_argument("--lang=tr-TR") 
-    driver = uc.Chrome(options=options)
+    driver = uc.Chrome(options=options, version_main=144)
 
     try:
         # İtopya Laptop Kategorisi
