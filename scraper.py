@@ -38,6 +38,12 @@ def itopya_fiyat_avcisi():
         # İtopya Laptop Kategorisi
         driver.get("https://www.itopya.com/notebook_k14")
         time.sleep(15) 
+        
+        # --- TEŞHİS İÇİN EKLENEN KISIM ---
+        print("Gidilen URL:", driver.current_url)
+        print("Sayfa Başlığı:", driver.title)
+        print("Sayfa Kaynağı Uzunluğu:", len(driver.page_source))
+        # ---------------------------------
 
         basliklar = driver.find_elements(By.CSS_SELECTOR, "a.title")
         fiyatlar = driver.find_elements(By.CSS_SELECTOR, "span.old-price")
