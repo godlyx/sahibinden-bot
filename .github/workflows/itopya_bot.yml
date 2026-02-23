@@ -16,9 +16,11 @@ jobs:
         with:
           python-version: '3.9'
 
-      - name: Kütüphaneleri Yükle
+      - name: Gerekli Kütüphaneleri ve Sanal Ekranı (Xvfb) Kur
         run: |
           pip install undetected-chromedriver selenium requests
+          sudo apt-get update
+          sudo apt-get install -y xvfb
 
-      - name: Botu Çalıştır
-        run: python scraper.py
+      - name: Botu Sanal Ekranda Çalıştır
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" python scraper.py

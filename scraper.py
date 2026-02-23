@@ -29,13 +29,9 @@ def fiyat_temizle(fiyat_metni):
 def itopya_fiyat_avcisi():
     print(f"\n[{time.strftime('%H:%M:%S')}] Fiyat Avcısı taramaya başlıyor...")
     options = uc.ChromeOptions()
-    # Eski --headless yerine yeni nesil görünmez modu kullanıyoruz
-    options.add_argument("--headless=new") 
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
-    # Bota gerçek bir bilgisayar ekranı ölçüsü veriyoruz
     options.add_argument("--window-size=1920,1080")
-    # Bota "Ben bulut sunucusu değilim, Windows 10 kullanan normal bir insanım" dedirtiyoruz
     options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
     options.add_argument("--lang=tr-TR") 
     
