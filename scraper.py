@@ -8,7 +8,7 @@ from database import veritabani_kur, urun_isle_ve_kiyasla
 # --- AYARLAR ---
 TOKEN = "8023968347:AAHdnOPqsgLmVePRfeA1X48iB7KDyU7KpRI"
 CHAT_ID = "-5204115535"
-BEKLEME_SURESI_DAKIKA = 60 # Bot her 15 dakikada bir uyanıp siteyi tarayacak
+# Not: BEKLEME_SURESI_DAKIKA silindi çünkü zamanlamayı artık GitHub Actions (cron) yapacak.
 
 def telegrama_gonder(mesaj):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
@@ -29,7 +29,7 @@ def fiyat_temizle(fiyat_metni):
 def itopya_fiyat_avcisi():
     print(f"\n[{time.strftime('%H:%M:%S')}] Fiyat Avcısı taramaya başlıyor...")
     options = uc.ChromeOptions()
-    options.add_argument("--headless") # Pencereyi gizler
+    options.add_argument("--headless") # Pencereyi gizler (Bulut için zorunlu)
     options.add_argument("--no-sandbox") # Sunucu ortamında güvenli çalışma sağlar
     options.add_argument("--lang=tr-TR") 
     driver = uc.Chrome(options=options)
@@ -76,12 +76,12 @@ def itopya_fiyat_avcisi():
         try: driver.quit()
         except: pass
 
-# --- OTOMASYON DÖNGÜSÜ ---
+# --- BULUT UYUMLU OTOMASYON TETİKLEYİCİSİ ---
 if __name__ == "__main__":
     veritabani_kur()
-    print("🚀 FİYAT AVCISI OTOMASYONU BAŞLATILDI!\nBot arka planda fırsat kolluyor...")
+    print("🚀 GITHUB ACTIONS TARAFINDAN TETİKLENDİ: Otomasyon başlatılıyor...")
     
-    while True:
-        itopya_fiyat_avcisi()
-        print(f"⏳ Bot uyku moduna geçti. {BEKLEME_SURESI_DAKIKA} dakika sonra tekrar tarayacak...\n")
-        time.sleep(BEKLEME_SURESI_DAKIKA * 60)
+    # Döngü olmadan sadece bir kez çalıştır
+    itopya_fiyat_avcisi()
+    
+    print("✅ İşlem başarıyla tamamlandı. Bulut makinesi kapatılıyor...")
