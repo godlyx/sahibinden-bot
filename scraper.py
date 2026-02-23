@@ -8,7 +8,7 @@ from database import veritabani_kur, urun_isle_ve_kiyasla
 # --- AYARLAR ---
 TOKEN = "8023968347:AAHdnOPqsgLmVePRfeA1X48iB7KDyU7KpRI"
 CHAT_ID = "-5204115535"
-BBEKLEME_SURESI_DAKIKA = 60 # Bot her 15 dakikada bir uyanıp siteyi tarayacak
+BEKLEME_SURESI_DAKIKA = 60 # Bot her 15 dakikada bir uyanıp siteyi tarayacak
 
 def telegrama_gonder(mesaj):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"

@@ -1,0 +1,24 @@
+name: Itopya Fiyat Avcısı
+on:
+  schedule:
+    - cron: '0 * * * *' # Her saatin başında (12:00, 13:00 vb.) çalıştır
+  workflow_dispatch: # İstediğin an manuel başlatabilmen için buton ekler
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Kodları Çek
+        uses: actions/checkout@v3
+
+      - name: Python Kur
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Kütüphaneleri Yükle
+        run: |
+          pip install undetected-chromedriver selenium requests
+
+      - name: Botu Çalıştır
+        run: python scraper.py
