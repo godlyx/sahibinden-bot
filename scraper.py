@@ -5,106 +5,83 @@ import requests
 import re
 from database import veritabani_kur, urun_isle_ve_kiyasla
 
-print("Hayalet Bot başlatılıyor... Yakalanmamak için Chrome gizlice açılıyor.")
-
-# --- BOT MASTER BURAYI DOLDURACAK ---
+# --- AYARLAR ---
 TOKEN = "8023968347:AAHdnOPqsgLmVePRfeA1X48iB7KDyU7KpRI"
-CHAT_ID = "-5204115535"  # Eksi işaretiyle başlayan grup ID'nizi buraya yapıştırın!
+CHAT_ID = "-5204115535"
+BBEKLEME_SURESI_DAKIKA = 60 # Bot her 15 dakikada bir uyanıp siteyi tarayacak
 
 def telegrama_gonder(mesaj):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-    payload = {
-        "chat_id": CHAT_ID,
-        "text": mesaj,
-        "parse_mode": "HTML"
-    }
-    response = requests.post(url, data=payload)
-    if response.status_code == 200:
-        print("✅ Mesaj gruba başarıyla iletildi!")
-    else:
-        print(f"❌ TELEGRAM HATASI: {response.text}")
+    payload = {"chat_id": CHAT_ID, "text": mesaj, "parse_mode": "HTML"}
+    try:
+        requests.post(url, data=payload)
+    except:
+        pass
 
 def fiyat_temizle(fiyat_metni):
-    """ '25.999,00 TL' gibi metinleri 25999.0 sayı formatına çevirir """
     try:
-        # Sadece rakamları ve virgülü al
         temiz = re.sub(r'[^\d,]', '', fiyat_metni)
-        # Virgülü noktaya çevir (Python ondalıkları nokta ile anlar)
         temiz = temiz.replace(',', '.')
         return float(temiz)
     except:
         return 0.0
 
-# ------------------------------------
+def itopya_fiyat_avcisi():
+    print(f"\n[{time.strftime('%H:%M:%S')}] Fiyat Avcısı taramaya başlıyor...")
+    options = uc.ChromeOptions()
+    options.add_argument("--headless") # Pencereyi gizler
+    options.add_argument("--no-sandbox") # Sunucu ortamında güvenli çalışma sağlar
+    options.add_argument("--lang=tr-TR") 
+    driver = uc.Chrome(options=options)
 
-print("İtopya Botu başlatılıyor... Bilgisayarlar taranıyor.")
+    try:
+        # İtopya Laptop Kategorisi
+        driver.get("https://www.itopya.com/notebook_k14")
+        time.sleep(15) 
 
-# Bot başlarken veritabanının hazır olduğundan emin olalım
-veritabani_kur()
+        basliklar = driver.find_elements(By.CSS_SELECTOR, "a.title")
+        fiyatlar = driver.find_elements(By.CSS_SELECTOR, "span.old-price")
 
-# 1. Normal webdriver yerine undetected_chromedriver kullanıyoruz
-options = uc.ChromeOptions()
-options.add_argument("--lang=tr-TR") 
-driver = uc.Chrome(options=options)
+        islem_goren_sayisi = 0
+        bildirim_giden_sayisi = 0
 
-# 2. İtopya URL'sine git
-url = "https://www.itopya.com/notebook_k14"
-driver.get(url)
+        for i in range(len(basliklar)):
+            baslik = basliklar[i].text.strip()
+            if not baslik or "notebook" not in baslik.lower() and "laptop" not in baslik.lower(): 
+                continue 
+            
+            link = basliklar[i].get_attribute("href")
+            if not link.startswith("http"): link = "https://www.itopya.com" + link
+            
+            if i < len(fiyatlar):
+                fiyat_metni = fiyatlar[i].text.strip().replace("\n", " ")
+                sayisal_fiyat = fiyat_temizle(fiyat_metni)
+            else:
+                continue # Fiyatı okunamayanları pas geç
 
-print("Sayfa yükleniyor... Eğer Captcha (Robot musun) çıkarsa 15 saniye içinde manuel çöz!")
-time.sleep(15) 
+            # Veritabanına sor: Fiyat düştü mü?
+            kiyas_mesaji = urun_isle_ve_kiyasla(ilan_id=link, baslik=baslik, link=link, guncel_fiyat=sayisal_fiyat)
+            islem_goren_sayisi += 1
 
-print("Veriler Çekiliyor, 5 saniye bekleniyor...\n")
-time.sleep(5) 
+            # SADECE İNDİRİM VARSA VEYA YENİ ÜRÜNSE TELEGRAMA AT
+            if "İNDİRİM YAKALANDI" in kiyas_mesaji or "YENİ İLAN" in kiyas_mesaji:
+                mesaj = f"💻 <b>İTOPYA STOK/FİYAT BİLDİRİMİ!</b>\n\n📌 <b>Model:</b> {baslik}\n{kiyas_mesaji}\n\n🔗 <a href='{link}'>Ürüne Git</a>"
+                telegrama_gonder(mesaj)
+                bildirim_giden_sayisi += 1
+                time.sleep(1)
 
-# 3. Verileri çekme işlemi
-# 3. Verileri çekme işlemi
-basliklar = driver.find_elements(By.CSS_SELECTOR, "a.title")
-# SENİN BULDUĞUN CLASS'I BURAYA EKLEDİK:
-fiyatlar = driver.find_elements(By.CSS_SELECTOR, "span.old-price") 
+        print(f"Tarama bitti: {islem_goren_sayisi} ürün kontrol edildi, {bildirim_giden_sayisi} fırsat Telegrama iletildi.")
 
-print("--- ÇEKİLEN İLANLAR ---\n")
-print(f"\nToplam {len(basliklar)} adet bilgisayar bulundu. İşleniyor...\n")
+    finally:
+        try: driver.quit()
+        except: pass
 
-# Test için ilk 5 ürünü çekiyoruz
-islenen_urun_sayisi = 0
-for i in range(len(basliklar)):
-    if islenen_urun_sayisi >= 5: # 5 ürüne ulaştıysak döngüyü durdur
-        break
-
-    baslik = basliklar[i].text.strip()
+# --- OTOMASYON DÖNGÜSÜ ---
+if __name__ == "__main__":
+    veritabani_kur()
+    print("🚀 FİYAT AVCISI OTOMASYONU BAŞLATILDI!\nBot arka planda fırsat kolluyor...")
     
-    # EĞER BAŞLIK BOŞSA (Reklam vs. ise) BU ADIMI ATLA, SONRAKİNE GEÇ
-    if not baslik:
-        continue 
-        
-    link = basliklar[i].get_attribute("href")
-    if not link.startswith("http"):
-        link = "https://www.itopya.com" + link
-    
-    if i < len(fiyatlar):
-        fiyat_metni = fiyatlar[i].text.strip().replace("\n", " ")
-        sayisal_fiyat = fiyat_temizle(fiyat_metni)
-    else:
-        fiyat_metni = "Fiyat Okunamadı"
-        sayisal_fiyat = 0.0
-    
-    # VERİTABANI İŞLEMİ
-    kiyas_mesaji = urun_isle_ve_kiyasla(ilan_id=link, baslik=baslik, link=link, guncel_fiyat=sayisal_fiyat)
-    
-    # TELEGRAM MESAJI
-    mesaj = f"💻 <b>İTOPYA BİLDİRİMİ!</b>\n\n📌 <b>Model:</b> {baslik}\n💰 <b>Fiyat:</b> {fiyat_metni}\n📊 <b>Durum:</b> {kiyas_mesaji}\n\n🔗 <a href='{link}'>Ürüne Gitmek İçin Tıklayın</a>"
-    
-    print(f"📌 İlan {i+1}: {baslik}")
-    print(f"💰 Fiyat: {fiyat_metni} (Matematiksel: {sayisal_fiyat})")
-    print(f"📊 Veritabanı Sonucu: {kiyas_mesaji}\n")
-    
-    telegrama_gonder(mesaj)
-    islenen_urun_sayisi += 1
-    time.sleep(1)
-
-print("İşlem tamamlandı, lütfen Telegram grubunu kontrol edin!")
-try:
-    driver.quit()
-except OSError:
-    pass
+    while True:
+        itopya_fiyat_avcisi()
+        print(f"⏳ Bot uyku moduna geçti. {BEKLEME_SURESI_DAKIKA} dakika sonra tekrar tarayacak...\n")
+        time.sleep(BEKLEME_SURESI_DAKIKA * 60)
